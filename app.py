@@ -233,19 +233,57 @@ def training_plots():
 @app.route('/api/test/random')
 def get_random_test_image():
     """Get a random test image for evaluation"""
-    if test_data is None:
-        return jsonify({"error": "Test dataset not loaded"}), 500
-    
-    # Get random index
-    max_index = len(test_data['images']) - 1
-    index = np.random.randint(0, max_index + 1)
-    
-    return jsonify({
-        "index": int(index),
-        "image": test_data['images'][index],
-        "true_label": CLASS_NAMES[test_data['labels'][index]],
-        "true_label_index": int(test_data['labels'][index])
-    })
+    try:
+        # Debug information
+        print(f"Test data status: {test_data is not None}")
+        if test_data is not None:
+            print(f"Test data images count: {len(test_data.get('images', []))}")
+        
+        if test_data is None:
+            print("ERROR: Test dataset not loaded")
+            return jsonify({
+                "error": "Test dataset not loaded",
+                "debug": "test_data is None",
+                "suggestion": "Check if static/test_data.json exists and is readable"
+            }), 500
+        
+        if 'images' not in test_data or 'labels' not in test_data:
+            print("ERROR: Test data missing required keys")
+            return jsonify({
+                "error": "Test data format invalid",
+                "debug": f"Available keys: {list(test_data.keys())}",
+                "suggestion": "test_data.json may be corrupted"
+            }), 500
+        
+        if len(test_data['images']) == 0:
+            print("ERROR: No test images available")
+            return jsonify({
+                "error": "No test images available",
+                "debug": "images array is empty"
+            }), 500
+        
+        # Get random index
+        max_index = len(test_data['images']) - 1
+        index = np.random.randint(0, max_index + 1)
+        
+        print(f"Serving test image index: {index}")
+        
+        return jsonify({
+            "index": int(index),
+            "image": test_data['images'][index],
+            "true_label": CLASS_NAMES[test_data['labels'][index]],
+            "true_label_index": int(test_data['labels'][index])
+        })
+        
+    except Exception as e:
+        print(f"ERROR in get_random_test_image: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": "Internal server error",
+            "debug": str(e),
+            "suggestion": "Check server logs for details"
+        }), 500
 
 @app.route('/api/test/predict/<int:index>')
 def predict_test_image(index):
@@ -344,6 +382,54 @@ def load_assets_with_retry(max_retries=3):
             print("⚠️ Max retries reached, starting server with available assets")
             
     return model_loaded, test_data_loaded
+
+@app.route('/api/debug')
+def debug_status():
+    """Debug endpoint to check app status on Railway"""
+    import os
+    debug_info = {
+        "app_status": "running",
+        "model_loaded": model is not None,
+        "test_data_loaded": test_data is not None,
+        "current_directory": os.getcwd(),
+        "static_directory_exists": os.path.exists('static'),
+        "files_in_static": [],
+        "environment": {
+            "PORT": os.environ.get('PORT', 'not set'),
+            "RAILWAY_ENVIRONMENT": os.environ.get('RAILWAY_ENVIRONMENT', 'not set')
+        }
+    }
+    
+    # Check static directory contents
+    try:
+        if os.path.exists('static'):
+            debug_info["files_in_static"] = os.listdir('static')
+            
+            # Check specific files
+            files_to_check = ['cifar10_cnn_model.h5', 'test_data.json', 'model_info.json', 'training_history.png']
+            file_status = {}
+            for file in files_to_check:
+                filepath = os.path.join('static', file)
+                if os.path.exists(filepath):
+                    file_status[file] = {
+                        "exists": True,
+                        "size": os.path.getsize(filepath)
+                    }
+                else:
+                    file_status[file] = {"exists": False}
+            debug_info["file_status"] = file_status
+    except Exception as e:
+        debug_info["static_directory_error"] = str(e)
+    
+    # Test data info
+    if test_data is not None:
+        debug_info["test_data_info"] = {
+            "keys": list(test_data.keys()),
+            "images_count": len(test_data.get('images', [])),
+            "labels_count": len(test_data.get('labels', []))
+        }
+    
+    return jsonify(debug_info)
 
 if __name__ == '__main__':
     print("Starting CIFAR-10 CNN Classifier Server...")
