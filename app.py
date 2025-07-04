@@ -431,6 +431,48 @@ def debug_status():
     
     return jsonify(debug_info)
 
+@app.route('/api/reload-assets', methods=['POST'])
+def reload_assets_manual():
+    """Manually reload assets - useful for Railway cold starts"""
+    try:
+        print("Manual asset reload requested...")
+        
+        # Force reload both model and test data
+        model_loaded, test_data_loaded = load_assets_with_retry(max_retries=3)
+        
+        result = {
+            "success": True,
+            "model_loaded": model_loaded,
+            "test_data_loaded": test_data_loaded,
+            "message": "Asset reload completed"
+        }
+        
+        if model_loaded and test_data_loaded:
+            result["message"] = "✅ All assets loaded successfully!"
+            result["status"] = "ready"
+        elif model_loaded:
+            result["message"] = "⚠️ Model loaded but test data failed"
+            result["status"] = "partial"
+        elif test_data_loaded:
+            result["message"] = "⚠️ Test data loaded but model failed"
+            result["status"] = "partial"
+        else:
+            result["message"] = "❌ Both model and test data failed to load"
+            result["status"] = "failed"
+            result["success"] = False
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"Error during manual asset reload: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "message": "Asset reload failed"
+        }), 500
+
 if __name__ == '__main__':
     print("Starting CIFAR-10 CNN Classifier Server...")
     

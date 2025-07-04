@@ -313,6 +313,18 @@
                 <span id="statusMessage">Loading...</span>
             </div>
             
+            <!-- Asset Reload Section (shown only on errors) -->
+            <div id="reloadSection" class="section" style="display: none; background: #fff3cd; border-color: #ffeaa7;">
+                <h3>⚠️ Asset Loading Issue</h3>
+                <p>It looks like the server assets didn't load properly. This can happen on Railway's cold starts. Click the button below to reload them:</p>
+                <div style="text-align: center;">
+                    <button class="btn" onclick="reloadAssets()" id="reloadBtn" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
+                        🔄 Try Again - Reload Assets
+                    </button>
+                </div>
+                <div id="reloadStatus" style="margin-top: 15px; text-align: center; font-weight: bold;"></div>
+            </div>
+            
             <!-- Dataset Information -->
             <div class="section">
                 <h3>📊 Dataset Information</h3>
@@ -386,11 +398,82 @@
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', async () => {
-            await loadDatasetInfo();
-            await loadModelInfo();
-            await loadTrainingPlots();
-            updateStatus('Pre-trained CNN model ready for predictions!', 'ready');
+            try {
+                await loadDatasetInfo();
+                await loadModelInfo();
+                await loadTrainingPlots();
+                updateStatus('Pre-trained CNN model ready for predictions!', 'ready');
+            } catch (error) {
+                console.error('Initialization error:', error);
+                updateStatus('Error loading application data', 'error');
+                showReloadSection();
+            }
         });
+
+        function showReloadSection() {
+            document.getElementById('reloadSection').style.display = 'block';
+        }
+
+        function hideReloadSection() {
+            document.getElementById('reloadSection').style.display = 'none';
+        }
+
+        async function reloadAssets() {
+            const reloadBtn = document.getElementById('reloadBtn');
+            const reloadStatus = document.getElementById('reloadStatus');
+            
+            // Disable button and show loading
+            reloadBtn.disabled = true;
+            reloadBtn.textContent = '🔄 Reloading Assets...';
+            reloadStatus.textContent = 'Please wait, reloading server assets...';
+            reloadStatus.style.color = '#f39c12';
+            
+            try {
+                const response = await fetch('/api/reload-assets', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    reloadStatus.textContent = data.message;
+                    reloadStatus.style.color = '#27ae60';
+                    
+                    // Wait a moment then try to reload the page data
+                    setTimeout(async () => {
+                        try {
+                            await loadDatasetInfo();
+                            await loadModelInfo();
+                            await loadTrainingPlots();
+                            updateStatus('Assets reloaded successfully! Ready for predictions.', 'ready');
+                            hideReloadSection();
+                        } catch (error) {
+                            reloadStatus.textContent = 'Assets reloaded but still having issues. Try refreshing the page.';
+                            reloadStatus.style.color = '#e74c3c';
+                        }
+                        
+                        // Re-enable button
+                        reloadBtn.disabled = false;
+                        reloadBtn.textContent = '🔄 Try Again - Reload Assets';
+                    }, 2000);
+                } else {
+                    reloadStatus.textContent = `Failed: ${data.message}`;
+                    reloadStatus.style.color = '#e74c3c';
+                    reloadBtn.disabled = false;
+                    reloadBtn.textContent = '🔄 Try Again - Reload Assets';
+                }
+                
+            } catch (error) {
+                console.error('Reload error:', error);
+                reloadStatus.textContent = 'Failed to reload assets. Check server logs.';
+                reloadStatus.style.color = '#e74c3c';
+                reloadBtn.disabled = false;
+                reloadBtn.textContent = '🔄 Try Again - Reload Assets';
+            }
+        }
 
         function updateStatus(message, type = 'ready') {
             const statusPanel = document.getElementById('statusPanel');
@@ -500,6 +583,14 @@
                 
                 const response = await fetch('/api/test/random');
                 if (!response.ok) {
+                    // Check if it's a 500 error (asset loading issue)
+                    if (response.status === 500) {
+                        const errorData = await response.json();
+                        console.error('Test image load error:', errorData);
+                        updateStatus('Server assets not ready. Try reloading assets.', 'error');
+                        showReloadSection();
+                        return;
+                    }
                     throw new Error(`Failed to load test image: ${response.status}`);
                 }
                 
@@ -525,9 +616,14 @@
                 document.getElementById('probabilityBars').innerHTML = '';
                 
                 updateStatus('Test image loaded. Click "Predict Label" to classify.', 'ready');
+                
+                // Hide reload section if it was showing
+                hideReloadSection();
+                
             } catch (error) {
                 console.error('Error loading test image:', error);
                 updateStatus('Error loading test image: ' + error.message, 'error');
+                showReloadSection();
             }
         }
 
