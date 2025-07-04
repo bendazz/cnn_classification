@@ -317,9 +317,12 @@
             <div id="reloadSection" class="section" style="display: none; background: #fff3cd; border-color: #ffeaa7;">
                 <h3>⚠️ Asset Loading Issue</h3>
                 <p>It looks like the server assets didn't load properly. This can happen on Railway's cold starts. Click the button below to reload them:</p>
+                <div style="background: #e8f5e8; border: 1px solid #27ae60; border-radius: 6px; padding: 10px; margin-bottom: 15px; font-size: 0.9em;">
+                    <strong>💡 Having issues?</strong> If the app doesn't respond as expected, try the "Troubleshoot" button to refresh the data.
+                </div>
                 <div style="text-align: center;">
                     <button class="btn" onclick="reloadAssets()" id="reloadBtn" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
-                        🔄 Try Again - Reload Assets
+                        🔄 Troubleshoot
                     </button>
                 </div>
                 <div id="reloadStatus" style="margin-top: 15px; text-align: center; font-weight: bold;"></div>
@@ -405,7 +408,7 @@
                 updateStatus('Pre-trained CNN model ready for predictions!', 'ready');
             } catch (error) {
                 console.error('Initialization error:', error);
-                updateStatus('Error loading application data', 'error');
+                updateStatus('Error loading application data. Try troubleshooting.', 'error');
                 showReloadSection();
             }
         });
@@ -424,7 +427,7 @@
             
             // Disable button and show loading
             reloadBtn.disabled = true;
-            reloadBtn.textContent = '🔄 Reloading Assets...';
+            reloadBtn.textContent = '🔄 Troubleshooting...';
             reloadStatus.textContent = 'Please wait, reloading server assets...';
             reloadStatus.style.color = '#f39c12';
             
@@ -457,13 +460,13 @@
                         
                         // Re-enable button
                         reloadBtn.disabled = false;
-                        reloadBtn.textContent = '🔄 Try Again - Reload Assets';
+                        reloadBtn.textContent = '🔄 Troubleshoot';
                     }, 2000);
                 } else {
                     reloadStatus.textContent = `Failed: ${data.message}`;
                     reloadStatus.style.color = '#e74c3c';
                     reloadBtn.disabled = false;
-                    reloadBtn.textContent = '🔄 Try Again - Reload Assets';
+                    reloadBtn.textContent = '🔄 Troubleshoot';
                 }
                 
             } catch (error) {
@@ -471,7 +474,7 @@
                 reloadStatus.textContent = 'Failed to reload assets. Check server logs.';
                 reloadStatus.style.color = '#e74c3c';
                 reloadBtn.disabled = false;
-                reloadBtn.textContent = '🔄 Try Again - Reload Assets';
+                reloadBtn.textContent = '🔄 Troubleshoot';
             }
         }
 
@@ -587,7 +590,7 @@
                     if (response.status === 500) {
                         const errorData = await response.json();
                         console.error('Test image load error:', errorData);
-                        updateStatus('Server assets not ready. Try reloading assets.', 'error');
+                        updateStatus('Server assets not ready. Try troubleshooting to reload.', 'error');
                         showReloadSection();
                         return;
                     }
